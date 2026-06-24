@@ -21,6 +21,7 @@ const MAPPING = {
   'dumbbell.fill': 'fitness-center',
   'clock.fill': 'history',
   'list.bullet': 'list',
+  'chart.bar.fill': 'bar-chart',
 } as IconMapping;
 
 /**

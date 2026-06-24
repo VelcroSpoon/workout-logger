@@ -13,20 +13,13 @@ import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
 import type { WorkoutSession, WeightUnit } from '@/types/workout';
 import { EXERCISE_MAP } from '@/data/exercises';
+import { formatMuscle } from '@/data/muscle-targets';
 import { loadSessions, loadUnit, saveSessions } from '@/storage/workout-storage';
 import { SPLIT_LABELS } from '@/constants/splits';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
 import { WeightInput } from '@/components/weight-input';
 import { formatVolume } from '@/constants/units';
-
-// "rear_delts" → "Rear Delts"
-function formatMuscle(muscle: string): string {
-  return muscle
-    .split('_')
-    .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join(' ');
-}
 
 // Returns the Monday of the current week as a "YYYY-MM-DD" string.
 // We compare dates as strings because ISO dates sort correctly

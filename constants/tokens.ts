@@ -13,6 +13,7 @@ export const Colors = {
   accent: '#C5F84A', // the lime — CTAs, highlights, "done"
   accentText: '#0C0E0C', // text/icon sitting ON the accent (dark)
   accentTint: 'rgba(197, 248, 74, 0.13)', // #C5F84A at 13% — pill/badge fills
+  accentDim: '#7F9E3C', // lime mixed ~55% with border — partial progress bars
 
   text: '#F4F6F4', // primary text
   textMuted: '#8B928B', // secondary text, labels
