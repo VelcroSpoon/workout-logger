@@ -15,6 +15,7 @@ import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
+import { WeightInput } from '@/components/weight-input';
 import type {
   SplitDay,
   LoggedSet,
@@ -130,6 +131,16 @@ export default function LogScreen() {
     },
     [],
   );
+
+  // Weight is committed by WeightInput as a canonical pounds value, so it
+  // bypasses the string-parsing path above.
+  const updateWeight = useCallback((index: number, lb: number) => {
+    setSets((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], weight: lb };
+      return next;
+    });
+  }, []);
 
   const toggleCompleted = useCallback((index: number) => {
     setSets((prev) => {
@@ -287,16 +298,14 @@ export default function LogScreen() {
                     <Text style={[styles.setNumber, { flex: 0.5 }]}>
                       {s.setNumber}
                     </Text>
-                    <TextInput
+                    <WeightInput
+                      valueLb={s.weight}
+                      unit={unit}
+                      onCommit={(lb) => updateWeight(s.globalIndex, lb)}
                       style={[
                         styles.setInput,
                         s.completed && styles.setInputDone,
                       ]}
-                      value={s.weight ? String(s.weight) : ''}
-                      onChangeText={(v) => updateSet(s.globalIndex, 'weight', v)}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor={Colors.textFaint}
                     />
                     <TextInput
                       style={[

@@ -17,6 +17,8 @@ import { loadSessions, loadUnit, saveSessions } from '@/storage/workout-storage'
 import { SPLIT_LABELS } from '@/constants/splits';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
+import { WeightInput } from '@/components/weight-input';
+import { formatVolume } from '@/constants/units';
 
 // "rear_delts" → "Rear Delts"
 function formatMuscle(muscle: string): string {
@@ -82,6 +84,22 @@ export default function HistoryScreen() {
               ...s,
               sets: s.sets.map((set, i) =>
                 i === setIndex ? { ...set, [field]: Number(value) || 0 } : set,
+              ),
+            }
+          : s,
+      ),
+    );
+  };
+
+  // Commit an edited weight (canonical pounds, from WeightInput).
+  const editWeight = (sessionId: string, setIndex: number, lb: number) => {
+    persist(
+      sessions.map((s) =>
+        s.id === sessionId
+          ? {
+              ...s,
+              sets: s.sets.map((set, i) =>
+                i === setIndex ? { ...set, weight: lb } : set,
               ),
             }
           : s,
@@ -170,13 +188,11 @@ export default function HistoryScreen() {
                 <Text style={styles.editExercise} numberOfLines={1}>
                   {exercise ? exercise.name : set.exerciseId}
                 </Text>
-                <TextInput
+                <WeightInput
+                  valueLb={set.weight}
+                  unit={unit}
+                  onCommit={(lb) => editWeight(editingSession.id, i, lb)}
                   style={styles.editInput}
-                  value={set.weight ? String(set.weight) : ''}
-                  onChangeText={(v) => editSet(editingSession.id, i, 'weight', v)}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={Colors.textFaint}
                 />
                 <Text style={styles.editX}>×</Text>
                 <TextInput
@@ -261,7 +277,7 @@ export default function HistoryScreen() {
                   <Text style={styles.sessionDate}>{session.date}</Text>
                 </View>
                 <Text style={styles.sessionSummary}>
-                  {session.sets.length} sets · {volume.toLocaleString()} {unit} total volume
+                  {session.sets.length} sets · {formatVolume(volume, unit)} total volume
                 </Text>
                 <Text style={styles.editHint}>Tap to edit</Text>
               </Pressable>
