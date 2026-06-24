@@ -1,12 +1,15 @@
 import { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
 import type { SplitDay, Routine, RoutineExercise, WeightUnit } from '@/types/workout';
 import { DEFAULT_EXERCISES, EXERCISE_MAP } from '@/data/exercises';
 import { DEFAULT_ROUTINE } from '@/data/default-routine';
 import { loadRoutine, saveRoutine, loadUnit, saveUnit } from '@/storage/workout-storage';
 import { SPLIT_DAYS, SPLIT_LABELS } from '@/constants/splits';
+import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
+import { ScreenTexture } from '@/components/screen-texture';
 
 export default function RoutineScreen() {
   const [routine, setRoutine] = useState<Routine>(DEFAULT_ROUTINE);
@@ -90,6 +93,8 @@ export default function RoutineScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenTexture />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Edit Routine</Text>
 
@@ -237,66 +242,73 @@ export default function RoutineScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#111' },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  content: { padding: Spacing.xl },
+  title: {
+    fontSize: 28,
+    fontFamily: Fonts.headingBold,
+    color: Colors.text,
+    letterSpacing: -0.5,
+  },
 
   // Weight unit toggle
   unitRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: Spacing.lg,
   },
-  unitLabel: { fontSize: 15, color: '#111' },
+  unitLabel: { fontSize: 15, color: Colors.text },
   unitToggle: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.sm,
     padding: 2,
   },
   unitOption: {
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     borderRadius: 6,
   },
-  unitOptionActive: { backgroundColor: '#2563eb' },
+  unitOptionActive: { backgroundColor: Colors.accent },
   unitOptionText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
+    fontFamily: Fonts.bodyBold,
+    color: Colors.textMuted,
     textTransform: 'uppercase',
   },
-  unitOptionTextActive: { color: '#fff' },
+  unitOptionTextActive: { color: Colors.accentText },
 
   // Split day selector
   splitTabs: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
   },
   splitTab: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
   },
-  splitTabActive: { backgroundColor: '#2563eb' },
-  splitTabText: { fontSize: 15, fontWeight: '600', color: '#555' },
-  splitTabTextActive: { color: '#fff' },
+  splitTabActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  splitTabText: { fontSize: 15, fontFamily: Fonts.bodySemibold, color: Colors.textMuted },
+  splitTabTextActive: { color: Colors.accentText },
 
   sectionHeader: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#999',
+    fontFamily: Fonts.bodyBold,
+    color: Colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 24,
+    marginTop: Spacing.xxl,
     marginBottom: 10,
   },
 
-  empty: { color: '#999', fontStyle: 'italic' },
+  empty: { color: Colors.textMuted, fontStyle: 'italic' },
 
   // Current exercise row
   exerciseRow: {
@@ -305,19 +317,27 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.border,
   },
 
   // Reorder arrows
   reorder: { justifyContent: 'center', gap: 1 },
-  reorderArrow: { fontSize: 13, color: '#2563eb', paddingHorizontal: 2 },
-  reorderDisabled: { color: '#ddd' },
-  exerciseName: { fontSize: 16, fontWeight: '600', color: '#111' },
+  reorderArrow: { fontSize: 13, color: Colors.accent, paddingHorizontal: 2 },
+  reorderDisabled: { color: Colors.border },
+  exerciseName: { fontSize: 16, fontFamily: Fonts.heading, color: Colors.text },
   muscleTag: {
-    fontSize: 12,
-    color: '#2563eb',
-    textTransform: 'capitalize',
-    marginTop: 2,
+    fontSize: 10,
+    fontFamily: Fonts.bodyBold,
+    letterSpacing: 0.6,
+    color: Colors.accent,
+    backgroundColor: Colors.accentTint,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radius.pill,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+    textTransform: 'uppercase',
+    marginTop: 4,
   },
 
   // Sets stepper
@@ -329,16 +349,16 @@ const styles = StyleSheet.create({
   stepBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepBtnText: { fontSize: 20, fontWeight: '600', color: '#111' },
+  stepBtnText: { fontSize: 20, fontFamily: Fonts.bodySemibold, color: Colors.text },
   setCount: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#111',
+    fontFamily: Fonts.number,
+    color: Colors.text,
     minWidth: 20,
     textAlign: 'center',
   },
@@ -350,7 +370,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removeBtnText: { fontSize: 16, color: '#ef4444' },
+  removeBtnText: { fontSize: 16, color: Colors.danger },
 
   // Add-from-library row
   addRow: {
@@ -359,9 +379,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 14,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    marginBottom: 8,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.sm,
   },
-  addPlus: { fontSize: 22, color: '#2563eb', fontWeight: '600' },
+  addPlus: { fontSize: 22, color: Colors.accent, fontWeight: '600' },
 });

@@ -9,11 +9,14 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
 import type { WorkoutSession, WeightUnit } from '@/types/workout';
 import { EXERCISE_MAP } from '@/data/exercises';
 import { loadSessions, loadUnit, saveSessions } from '@/storage/workout-storage';
 import { SPLIT_LABELS } from '@/constants/splits';
+import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
+import { ScreenTexture } from '@/components/screen-texture';
 
 // "rear_delts" → "Rear Delts"
 function formatMuscle(muscle: string): string {
@@ -148,6 +151,8 @@ export default function HistoryScreen() {
   if (editingSession) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
+        <ScreenTexture />
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Pressable onPress={() => setEditingId(null)}>
             <Text style={styles.backButton}>← History</Text>
@@ -171,7 +176,7 @@ export default function HistoryScreen() {
                   onChangeText={(v) => editSet(editingSession.id, i, 'weight', v)}
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor="#bbb"
+                  placeholderTextColor={Colors.textFaint}
                 />
                 <Text style={styles.editX}>×</Text>
                 <TextInput
@@ -180,7 +185,7 @@ export default function HistoryScreen() {
                   onChangeText={(v) => editSet(editingSession.id, i, 'reps', v)}
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor="#bbb"
+                  placeholderTextColor={Colors.textFaint}
                 />
                 <Pressable
                   style={styles.editDelete}
@@ -212,6 +217,8 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenTexture />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>History</Text>
 
@@ -267,84 +274,100 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#111' },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  content: { padding: Spacing.xl },
+  title: {
+    fontSize: 28,
+    fontFamily: Fonts.headingBold,
+    color: Colors.text,
+    letterSpacing: -0.5,
+  },
 
   sectionHeader: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#999',
+    fontFamily: Fonts.bodyBold,
+    color: Colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 24,
+    marginTop: Spacing.xxl,
     marginBottom: 10,
   },
 
-  empty: { color: '#999', fontStyle: 'italic' },
+  empty: { color: Colors.textMuted, fontStyle: 'italic' },
 
   // Weekly volume
   volumeCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
   },
   volumeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  volumeMuscle: { fontSize: 15, color: '#111' },
-  volumeSets: { fontSize: 15, fontWeight: '700', color: '#2563eb' },
+  volumeMuscle: { fontSize: 15, fontFamily: Fonts.bodyMedium, color: Colors.text },
+  volumeSets: { fontSize: 15, fontFamily: Fonts.number, color: Colors.accent },
 
   // Past sessions
   sessionCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
     marginBottom: 10,
   },
   sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
-  sessionSplit: { fontSize: 17, fontWeight: '700', color: '#111' },
-  sessionDate: { fontSize: 13, color: '#888' },
-  sessionSummary: { fontSize: 14, color: '#555' },
-  editHint: { fontSize: 12, color: '#2563eb', marginTop: 6 },
+  sessionSplit: { fontSize: 17, fontFamily: Fonts.heading, color: Colors.text },
+  sessionDate: { fontSize: 13, fontFamily: Fonts.body, color: Colors.textMuted },
+  sessionSummary: { fontSize: 14, fontFamily: Fonts.body, color: Colors.textMuted },
+  editHint: { fontSize: 12, fontFamily: Fonts.bodySemibold, color: Colors.accent, marginTop: 6 },
 
   // ─── Editor ───
-  backButton: { fontSize: 16, color: '#2563eb', marginBottom: 12 },
+  backButton: {
+    fontSize: 16,
+    fontFamily: Fonts.bodySemibold,
+    color: Colors.accent,
+    marginBottom: Spacing.md,
+  },
   editRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
   },
-  editExercise: { flex: 1, fontSize: 15, color: '#111' },
+  editExercise: { flex: 1, fontSize: 15, fontFamily: Fonts.bodyMedium, color: Colors.text },
   editInput: {
     width: 64,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 8,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.sm,
+    padding: Spacing.sm,
     fontSize: 16,
+    fontFamily: Fonts.bodySemibold,
     textAlign: 'center',
-    color: '#111',
+    color: Colors.text,
   },
-  editX: { fontSize: 14, color: '#999' },
+  editX: { fontSize: 14, color: Colors.textMuted },
   editDelete: { padding: 6 },
-  editDeleteText: { fontSize: 14, color: '#ef4444' },
+  editDeleteText: { fontSize: 14, color: Colors.danger },
   deleteSessionButton: {
-    marginTop: 32,
-    padding: 14,
-    borderRadius: 12,
+    marginTop: Spacing.xxl,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ef4444',
+    borderColor: Colors.danger,
   },
-  deleteSessionText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
+  deleteSessionText: { color: Colors.danger, fontSize: 16, fontFamily: Fonts.bodySemibold },
 });

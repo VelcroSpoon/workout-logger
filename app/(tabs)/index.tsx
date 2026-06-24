@@ -13,7 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Colors, Spacing, Radius } from '@/constants/tokens';
+import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
+import { ScreenTexture } from '@/components/screen-texture';
 import type {
   SplitDay,
   LoggedSet,
@@ -203,6 +204,7 @@ export default function LogScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
+        <ScreenTexture />
         <Text style={styles.title}>What are you training?</Text>
         <View style={styles.splitPicker}>
           {SPLIT_DAYS.map((day) => {
@@ -236,6 +238,7 @@ export default function LogScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
+      <ScreenTexture />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -383,7 +386,12 @@ export default function LogScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
+  title: {
+    fontSize: 28,
+    fontFamily: Fonts.headingBold,
+    color: Colors.text,
+    letterSpacing: -0.5,
+  },
 
   // Split picker
   splitPicker: { padding: Spacing.xl, gap: Spacing.md },
@@ -394,8 +402,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing.xl,
   },
-  splitLabel: { fontSize: 20, fontWeight: '700', color: Colors.text },
-  splitSub: { fontSize: 13, color: Colors.textMuted, marginTop: Spacing.xs },
+  splitLabel: { fontSize: 20, fontFamily: Fonts.headingBold, color: Colors.text },
+  splitSub: {
+    fontSize: 13,
+    fontFamily: Fonts.body,
+    color: Colors.textMuted,
+    marginTop: Spacing.xs,
+  },
 
   // Active workout header
   header: {
@@ -407,7 +420,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  backButton: { fontSize: 16, color: Colors.accent },
+  backButton: { fontSize: 16, fontFamily: Fonts.bodySemibold, color: Colors.accent },
 
   // Scroll area
   scrollArea: { flex: 1, paddingHorizontal: Spacing.xl },
@@ -425,17 +438,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.sm,
   },
-  exerciseName: { fontSize: 17, fontWeight: '600', color: Colors.text },
+  exerciseName: { fontSize: 18, fontFamily: Fonts.heading, color: Colors.text },
   muscleTag: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontFamily: Fonts.bodyBold,
+    letterSpacing: 0.7,
     color: Colors.accent,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: Colors.accentTint,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     overflow: 'hidden',
-    textTransform: 'capitalize',
+    textTransform: 'uppercase',
   },
 
   // Set rows
@@ -447,14 +461,16 @@ const styles = StyleSheet.create({
   },
   setLabel: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textMuted,
+    fontSize: 11,
+    fontFamily: Fonts.bodyMedium,
+    letterSpacing: 0.4,
+    color: Colors.textFaint,
     textAlign: 'center',
+    textTransform: 'uppercase',
   },
   setNumber: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: Fonts.number,
     color: Colors.textMuted,
     textAlign: 'center',
   },
@@ -466,6 +482,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     padding: 10,
     fontSize: 16,
+    fontFamily: Fonts.bodySemibold,
     textAlign: 'center',
     color: Colors.text,
   },
@@ -473,18 +490,22 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
   },
 
-  // Check button
+  // Check button — bordered box when empty, filled lime when done
   checkButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
   },
   checkButtonDone: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: Radius.sm,
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
   },
-  checkText: { fontSize: 18, color: Colors.textMuted },
-  checkTextDone: { color: Colors.accent },
+  checkText: { fontSize: 18, color: Colors.checkEmpty },
+  checkTextDone: { color: Colors.accentText },
 
   // Remove-set button (mid-workout)
   removeSetButton: {
@@ -504,7 +525,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  addSetText: { color: Colors.accent, fontWeight: '600', fontSize: 14 },
+  addSetText: { color: Colors.accent, fontFamily: Fonts.bodySemibold, fontSize: 14 },
 
   // Rest timer bar
   restBar: {
@@ -521,8 +542,8 @@ const styles = StyleSheet.create({
   },
   restLabel: {
     color: Colors.accent,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontFamily: Fonts.number,
     fontVariant: ['tabular-nums'], // digits keep a fixed width as they tick
   },
   restControls: { flexDirection: 'row', gap: Spacing.sm },
@@ -532,7 +553,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.sm,
   },
-  restButtonText: { color: Colors.text, fontSize: 14, fontWeight: '600' },
+  restButtonText: { color: Colors.text, fontSize: 14, fontFamily: Fonts.bodySemibold },
 
   // Finish button
   finishButton: {
@@ -542,5 +563,5 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     alignItems: 'center',
   },
-  finishText: { color: Colors.accentText, fontSize: 17, fontWeight: '800' },
+  finishText: { color: Colors.accentText, fontSize: 17, fontFamily: Fonts.bodyBold },
 });

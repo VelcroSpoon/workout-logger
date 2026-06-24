@@ -12,12 +12,19 @@ export const Colors = {
 
   accent: '#C5F84A', // the lime — CTAs, highlights, "done"
   accentText: '#0C0E0C', // text/icon sitting ON the accent (dark)
+  accentTint: 'rgba(197, 248, 74, 0.13)', // #C5F84A at 13% — pill/badge fills
 
   text: '#F4F6F4', // primary text
   textMuted: '#8B928B', // secondary text, labels
-  textFaint: '#5A615A', // placeholders, disabled
+  textFaint: '#5A625A', // placeholders, disabled, inactive nav
+  checkEmpty: '#39413A', // glyph color for an unchecked set
 
   danger: '#FF6B6B', // destructive actions on dark
+} as const;
+
+// Theme knobs the spec wants swappable from one place.
+export const Theme = {
+  cardTexture: true, // subtle diagonal texture on dark surfaces
 } as const;
 
 export const Spacing = {
@@ -34,4 +41,19 @@ export const Radius = {
   md: 12,
   lg: 16,
   pill: 999,
+} as const;
+
+// Font families. The string values are the names the font packages
+// register under (see _layout.tsx where they're loaded). Reference
+// these via `fontFamily` in styles instead of hardcoding the names.
+//   - Space Grotesk → headlines and numbers (timers, counts)
+//   - Hanken Grotesk → UI text and body
+export const Fonts = {
+  heading: 'SpaceGrotesk_600SemiBold', // headlines, big labels
+  headingBold: 'SpaceGrotesk_700Bold', // heaviest titles, key numbers
+  number: 'SpaceGrotesk_600SemiBold', // timers / counts (use with tabular-nums)
+  body: 'HankenGrotesk_400Regular',
+  bodyMedium: 'HankenGrotesk_500Medium',
+  bodySemibold: 'HankenGrotesk_600SemiBold',
+  bodyBold: 'HankenGrotesk_700Bold',
 } as const;

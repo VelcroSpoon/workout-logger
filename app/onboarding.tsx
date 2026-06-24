@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import type { WeightUnit } from '@/types/workout';
 import { DEFAULT_ROUTINE } from '@/data/default-routine';
@@ -10,6 +11,8 @@ import {
   loadRoutine,
   saveOnboarded,
 } from '@/storage/workout-storage';
+import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
+import { ScreenTexture } from '@/components/screen-texture';
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -30,6 +33,8 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenTexture />
       <View style={styles.content}>
         <Text style={styles.emoji}>🏋️</Text>
         <Text style={styles.title}>Welcome to your PPL log</Text>
@@ -71,43 +76,50 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 24,
+    backgroundColor: Colors.bg,
+    padding: Spacing.xxl,
     justifyContent: 'space-between',
   },
   content: { flex: 1, justifyContent: 'center' },
-  emoji: { fontSize: 56, marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#111', marginBottom: 12 },
-  subtitle: { fontSize: 16, color: '#555', lineHeight: 23 },
+  emoji: { fontSize: 56, marginBottom: Spacing.lg },
+  title: {
+    fontSize: 40,
+    fontFamily: Fonts.heading,
+    color: Colors.text,
+    letterSpacing: -1,
+    lineHeight: 42,
+    marginBottom: Spacing.lg,
+  },
+  subtitle: { fontSize: 16, fontFamily: Fonts.body, color: Colors.textMuted, lineHeight: 23 },
 
   question: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
+    fontFamily: Fonts.bodySemibold,
+    color: Colors.text,
     marginTop: 40,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   unitToggle: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 10,
-    padding: 4,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.md,
+    padding: Spacing.xs,
   },
   unitOption: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: Radius.sm,
     alignItems: 'center',
   },
-  unitOptionActive: { backgroundColor: '#2563eb' },
-  unitOptionText: { fontSize: 16, fontWeight: '700', color: '#555' },
-  unitOptionTextActive: { color: '#fff' },
+  unitOptionActive: { backgroundColor: Colors.accent },
+  unitOptionText: { fontSize: 16, fontFamily: Fonts.bodyBold, color: Colors.textMuted },
+  unitOptionTextActive: { color: Colors.accentText },
 
   cta: {
-    backgroundColor: '#2563eb',
+    backgroundColor: Colors.accent,
     padding: 18,
-    borderRadius: 14,
+    borderRadius: Radius.lg,
     alignItems: 'center',
   },
-  ctaText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  ctaText: { color: Colors.accentText, fontSize: 18, fontFamily: Fonts.bodyBold },
 });

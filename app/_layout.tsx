@@ -2,8 +2,19 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
+import {
+  useFonts,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import {
+  HankenGrotesk_400Regular,
+  HankenGrotesk_500Medium,
+  HankenGrotesk_600SemiBold,
+  HankenGrotesk_700Bold,
+} from '@expo-google-fonts/hanken-grotesk';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { loadOnboarded } from '@/storage/workout-storage';
@@ -12,29 +23,46 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-// Keep the native splash screen visible until we've decided where to
-// send the user. Without this, the tabs would flash for a frame before
-// a first-time user gets redirected to onboarding.
+// Keep the native splash screen visible until BOTH the fonts are loaded
+// and we've decided where to send the user. Without this we'd flash
+// unstyled (fallback-font) text, and the tabs would flicker before a
+// first-time user gets redirected to onboarding.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
 
-  // The <Stack> below is always rendered so the navigator is mounted and
-  // ready to navigate. The native splash screen stays up (we never auto-
-  // hid it) covering everything until we've decided where to go, so the
-  // first-launch redirect to onboarding happens unseen.
+  // The keys here become the font-family names used in styles via the
+  // Fonts token (constants/tokens.ts). useFonts returns false until the
+  // .ttf files have loaded.
+  const [fontsLoaded] = useFonts({
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    HankenGrotesk_400Regular,
+    HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold,
+    HankenGrotesk_700Bold,
+  });
+
+  const [navReady, setNavReady] = useState(false);
+
+  // Decide the entry route once on mount. The <Stack> is always rendered
+  // so the navigator is mounted and ready to navigate.
   useEffect(() => {
     (async () => {
       const onboarded = await loadOnboarded();
-      // First launch (flag not set) → send them through onboarding.
-      // replace() leaves no history entry, so back won't return to tabs.
       if (!onboarded) router.replace('/onboarding');
-      await SplashScreen.hideAsync();
+      setNavReady(true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reveal the app only once fonts are ready AND the redirect decision is
+  // made — so the first painted frame is fully styled and on the right screen.
+  useEffect(() => {
+    if (fontsLoaded && navReady) SplashScreen.hideAsync();
+  }, [fontsLoaded, navReady]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
