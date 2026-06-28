@@ -1,15 +1,15 @@
 import { useState, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
-import type { WorkoutSession } from '@/types/workout';
+import type { WorkoutSession, MuscleGroup } from '@/types/workout';
 import {
   DEFAULT_MUSCLE_TARGETS,
   MUSCLE_ORDER,
   formatMuscle,
 } from '@/data/muscle-targets';
-import { loadSessions } from '@/storage/workout-storage';
+import { loadSessions, loadTargets, saveTargets } from '@/storage/workout-storage';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
 import { useExercises } from '@/components/exercises-context';
@@ -45,12 +45,24 @@ function formatWeekRange(start: Date, end: Date): string {
 export default function VolumeScreen() {
   const { exerciseMap } = useExercises();
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
+  const [targets, setTargets] = useState<Record<MuscleGroup, number>>(DEFAULT_MUSCLE_TARGETS);
+  const [editing, setEditing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       loadSessions().then(setSessions);
+      loadTargets().then(setTargets);
     }, []),
   );
+
+  // Adjust a muscle's weekly target (clamped 0–30) and persist it.
+  const changeTarget = (muscle: MuscleGroup, delta: number) => {
+    setTargets((prev) => {
+      const next = { ...prev, [muscle]: Math.min(30, Math.max(0, prev[muscle] + delta)) };
+      saveTargets(next);
+      return next;
+    });
+  };
 
   // ─── Tally completed sets this week, per muscle group ─────────
   const weekStart = startOfWeek();
@@ -73,7 +85,7 @@ export default function VolumeScreen() {
   const rows = MUSCLE_ORDER.map((muscle) => ({
     muscle,
     done: counts[muscle] ?? 0,
-    target: DEFAULT_MUSCLE_TARGETS[muscle],
+    target: targets[muscle],
   }));
 
   // Summary numbers.
@@ -90,9 +102,16 @@ export default function VolumeScreen() {
         <Text style={styles.eyebrow}>
           This week · {formatWeekRange(weekStart, weekEnd)}
         </Text>
-        <Text style={styles.title}>Sets per muscle</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Sets per muscle</Text>
+          <Pressable onPress={() => setEditing((e) => !e)} hitSlop={8}>
+            <Text style={styles.editToggle}>{editing ? 'Done' : 'Edit targets'}</Text>
+          </Pressable>
+        </View>
         <Text style={styles.subtitle}>
-          Planned vs. actual — the number that drives growth.
+          {editing
+            ? 'Set your weekly target sets per muscle.'
+            : 'Planned vs. actual — the number that drives growth.'}
         </Text>
 
         {/* ─── Summary stat cards ─── */}
@@ -111,32 +130,44 @@ export default function VolumeScreen() {
           </View>
         </View>
 
-        {/* ─── Per-muscle progress ─── */}
+        {/* ─── Per-muscle progress (or target steppers in edit mode) ─── */}
         {rows.map(({ muscle, done, target }) => {
-          const hit = done >= target;
-          const pct = Math.min(100, Math.round((done / target) * 100));
+          const hit = target === 0 ? true : done >= target;
+          const pct = target === 0 ? 100 : Math.min(100, Math.round((done / target) * 100));
           return (
             <View key={muscle} style={styles.muscleRow}>
               <View style={styles.muscleTop}>
                 <Text style={styles.muscleName}>{formatMuscle(muscle)}</Text>
-                <Text style={styles.muscleCount}>
-                  <Text style={hit ? styles.countHit : styles.countDone}>
-                    {done}
+                {editing ? (
+                  <View style={styles.stepper}>
+                    <Pressable style={styles.stepBtn} onPress={() => changeTarget(muscle, -1)}>
+                      <Text style={styles.stepBtnText}>−</Text>
+                    </Pressable>
+                    <Text style={styles.stepValue}>{target}</Text>
+                    <Pressable style={styles.stepBtn} onPress={() => changeTarget(muscle, 1)}>
+                      <Text style={styles.stepBtnText}>+</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Text style={styles.muscleCount}>
+                    <Text style={hit ? styles.countHit : styles.countDone}>{done}</Text>
+                    <Text style={styles.countTarget}> / {target} sets</Text>
                   </Text>
-                  <Text style={styles.countTarget}> / {target} sets</Text>
-                </Text>
+                )}
               </View>
-              <View style={styles.track}>
-                <View
-                  style={[
-                    styles.fill,
-                    {
-                      width: `${pct}%`,
-                      backgroundColor: hit ? Colors.accent : Colors.accentDim,
-                    },
-                  ]}
-                />
-              </View>
+              {!editing && (
+                <View style={styles.track}>
+                  <View
+                    style={[
+                      styles.fill,
+                      {
+                        width: `${pct}%`,
+                        backgroundColor: hit ? Colors.accent : Colors.accentDim,
+                      },
+                    ]}
+                  />
+                </View>
+              )}
             </View>
           );
         })}
@@ -150,6 +181,31 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.xl },
 
   eyebrow: { fontSize: 13, fontFamily: Fonts.body, color: Colors.textMuted },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  editToggle: { fontSize: 14, fontFamily: Fonts.bodySemibold, color: Colors.accent },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnText: { fontSize: 18, fontFamily: Fonts.bodySemibold, color: Colors.text },
+  stepValue: {
+    fontSize: 16,
+    fontFamily: Fonts.number,
+    color: Colors.text,
+    minWidth: 22,
+    textAlign: 'center',
+  },
   title: {
     fontSize: 30,
     fontFamily: Fonts.heading,

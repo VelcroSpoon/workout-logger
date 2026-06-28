@@ -8,6 +8,7 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -62,10 +63,11 @@ function relativeDay(iso: string): string {
 }
 
 export default function LogScreen() {
-  const { exerciseMap } = useExercises();
+  const { exerciseMap, allExercises } = useExercises();
 
   // ─── State ─────────────────────────────────────────────
   const [routine, setRoutine] = useState<Routine>(DEFAULT_ROUTINE);
+  const [picking, setPicking] = useState(false); // exercise picker open?
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [activeSplit, setActiveSplit] = useState<SplitDay | null>(null);
   const [sets, setSets] = useState<LoggedSet[]>([]);
@@ -171,6 +173,38 @@ export default function LogScreen() {
     startWorkout(nextUp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startSignal]);
+
+  // Start a blank session: no preset exercises, tagged to the next-up day.
+  // You build it up with "+ Add exercise".
+  const startEmptySession = useCallback(() => {
+    const nextUp: SplitDay = sessions.length
+      ? NEXT_IN_ROTATION[sessions[0].splitDay]
+      : 'push';
+    setSets([]);
+    setElapsed(0);
+    setActiveSplit(nextUp);
+  }, [sessions]);
+
+  // Add an exercise to the in-progress workout (from the picker). One set,
+  // pre-filled from the last session for that exercise if we have history.
+  const addExerciseToWorkout = useCallback(
+    (exerciseId: string) => {
+      const lastSession = sessions.find((s) => s.splitDay === activeSplit);
+      const prev = lastSession?.sets.find((st) => st.exerciseId === exerciseId);
+      setSets((prevSets) => [
+        ...prevSets,
+        {
+          exerciseId,
+          setNumber: 1,
+          weight: prev?.weight ?? 0,
+          reps: prev?.reps ?? 0,
+          completed: false,
+        },
+      ]);
+      setPicking(false);
+    },
+    [sessions, activeSplit],
+  );
 
   // ─── Update a single set's field ───────────────────────
   // Instead of managing separate state for each input, we keep
@@ -333,7 +367,7 @@ export default function LogScreen() {
             <Text style={styles.orText}>or</Text>
             <View style={styles.orLine} />
           </View>
-          <Pressable onPress={() => startWorkout(nextUp)}>
+          <Pressable onPress={startEmptySession}>
             <Text style={styles.emptySession}>Start an empty session</Text>
           </Pressable>
         </ScrollView>
@@ -342,10 +376,14 @@ export default function LogScreen() {
   }
 
   // ─── Active Workout ────────────────────────────────────
-  // Group the flat sets array by exercise so we can render
-  // sections. We walk the routine order (not the sets order)
-  // to keep exercises in the planned sequence.
-  const exercisesForDay = routine[activeSplit];
+  // Render exercises in the order their sets first appear in the flat sets
+  // array. This drives the screen off the actual sets (not the routine), so
+  // it handles both routine-prefilled sessions and ad-hoc empty ones, plus
+  // any exercises added mid-workout.
+  const exerciseOrder: string[] = [];
+  for (const s of sets) {
+    if (!exerciseOrder.includes(s.exerciseId)) exerciseOrder.push(s.exerciseId);
+  }
   const doneCount = sets.filter((s) => s.completed).length;
   const totalCount = sets.length;
   // The session we pre-filled from, for the "pre-filled from last session" note.
@@ -381,22 +419,22 @@ export default function LogScreen() {
         </View>
 
         <ScrollView style={styles.scrollArea} keyboardShouldPersistTaps="handled">
-          {exercisesForDay.map((re: RoutineExercise) => {
-            const exercise = exerciseMap[re.exerciseId];
+          {exerciseOrder.map((exerciseId) => {
+            const exercise = exerciseMap[exerciseId];
             if (!exercise) return null;
 
             // Find this exercise's sets in our flat array
             const exerciseSets = sets
               .map((s, i) => ({ ...s, globalIndex: i }))
-              .filter((s) => s.exerciseId === re.exerciseId);
+              .filter((s) => s.exerciseId === exerciseId);
 
             // The weight this exercise was pre-filled from (last session's first set).
             const lastWeight = lastSession?.sets.find(
-              (st) => st.exerciseId === re.exerciseId,
+              (st) => st.exerciseId === exerciseId,
             )?.weight;
 
             return (
-              <View key={re.exerciseId} style={styles.exerciseBlock}>
+              <View key={exerciseId} style={styles.exerciseBlock}>
                 <View style={styles.exerciseHeader}>
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <Text style={styles.muscleTag}>{exercise.muscleGroup}</Text>
@@ -470,7 +508,7 @@ export default function LogScreen() {
 
                 <Pressable
                   style={styles.addSetButton}
-                  onPress={() => addSet(re.exerciseId)}
+                  onPress={() => addSet(exerciseId)}
                 >
                   <Text style={styles.addSetText}>+ Add set</Text>
                 </Pressable>
@@ -478,9 +516,46 @@ export default function LogScreen() {
             );
           })}
 
+          {exerciseOrder.length === 0 && (
+            <Text style={styles.emptyWorkout}>
+              No exercises yet — add one to start logging.
+            </Text>
+          )}
+
+          {/* Add any exercise to this session */}
+          <Pressable style={styles.addExerciseButton} onPress={() => setPicking(true)}>
+            <Text style={styles.addExerciseText}>+ Add exercise</Text>
+          </Pressable>
+
           {/* Spacer so the finish button isn't hidden by keyboard */}
           <View style={{ height: 100 }} />
         </ScrollView>
+
+        {/* Exercise picker */}
+        <Modal
+          visible={picking}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setPicking(false)}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setPicking(false)}>
+            <Pressable style={styles.modalSheet} onPress={() => {}}>
+              <Text style={styles.modalTitle}>Add exercise</Text>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {allExercises.map((ex) => (
+                  <Pressable
+                    key={ex.id}
+                    style={styles.pickRow}
+                    onPress={() => addExerciseToWorkout(ex.id)}
+                  >
+                    <Text style={styles.pickName}>{ex.name}</Text>
+                    <Text style={styles.pickMuscle}>{ex.muscleGroup}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Rest timer bar — only visible while a timer is running */}
         {restRemaining !== null && (
@@ -776,6 +851,66 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   addSetText: { color: Colors.accent, fontFamily: Fonts.bodySemibold, fontSize: 14 },
+
+  // Add-exercise button + empty state
+  addExerciseButton: {
+    marginTop: Spacing.xl,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+  },
+  addExerciseText: { color: Colors.text, fontFamily: Fonts.bodySemibold, fontSize: 15 },
+  emptyWorkout: {
+    textAlign: 'center',
+    marginTop: Spacing.xl,
+    fontSize: 14,
+    fontFamily: Fonts.body,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
+  },
+
+  // Exercise picker modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: Fonts.headingBold,
+    color: Colors.text,
+    marginBottom: Spacing.md,
+  },
+  pickRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  pickName: { fontSize: 16, fontFamily: Fonts.bodyMedium, color: Colors.text },
+  pickMuscle: {
+    fontSize: 11,
+    fontFamily: Fonts.bodyBold,
+    letterSpacing: 0.6,
+    color: Colors.accent,
+    textTransform: 'uppercase',
+  },
 
   // Rest timer bar
   restBar: {

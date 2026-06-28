@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { WorkoutSession, Routine, WeightUnit, Exercise } from '@/types/workout';
+import type { WorkoutSession, Routine, WeightUnit, Exercise, MuscleGroup } from '@/types/workout';
+import { DEFAULT_MUSCLE_TARGETS } from '@/data/muscle-targets';
 
 const KEYS = {
   SESSIONS: 'workout_sessions',
@@ -7,7 +8,10 @@ const KEYS = {
   UNIT: 'workout_unit',
   ONBOARDED: 'workout_onboarded',
   CUSTOM_EXERCISES: 'workout_custom_exercises',
+  TARGETS: 'workout_targets',
 } as const;
+
+type MuscleTargets = Record<MuscleGroup, number>;
 
 // ─── Sessions ──────────────────────────────────────────────────
 
@@ -66,6 +70,20 @@ export async function loadCustomExercises(): Promise<Exercise[]> {
 
 export async function saveCustomExercises(list: Exercise[]): Promise<void> {
   await AsyncStorage.setItem(KEYS.CUSTOM_EXERCISES, JSON.stringify(list));
+}
+
+// ─── Weekly muscle targets ─────────────────────────────────────
+// Stored targets are merged over the defaults, so any muscle the user
+// hasn't customised falls back to its default.
+
+export async function loadTargets(): Promise<MuscleTargets> {
+  const json = await AsyncStorage.getItem(KEYS.TARGETS);
+  const saved = json ? JSON.parse(json) : {};
+  return { ...DEFAULT_MUSCLE_TARGETS, ...saved };
+}
+
+export async function saveTargets(targets: MuscleTargets): Promise<void> {
+  await AsyncStorage.setItem(KEYS.TARGETS, JSON.stringify(targets));
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
