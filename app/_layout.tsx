@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 import {
   useFonts,
@@ -45,24 +45,22 @@ export default function RootLayout() {
     HankenGrotesk_700Bold,
   });
 
-  const [navReady, setNavReady] = useState(false);
-
-  // Decide the entry route once on mount. The <Stack> is always rendered
-  // so the navigator is mounted and ready to navigate.
+  // Once the fonts are registered, the tree below mounts this same render,
+  // so the navigator exists — decide the entry route and reveal the app.
   useEffect(() => {
+    if (!fontsLoaded) return;
     (async () => {
       const onboarded = await loadOnboarded();
       if (!onboarded) router.replace('/onboarding');
-      setNavReady(true);
+      await SplashScreen.hideAsync();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fontsLoaded]);
 
-  // Reveal the app only once fonts are ready AND the redirect decision is
-  // made — so the first painted frame is fully styled and on the right screen.
-  useEffect(() => {
-    if (fontsLoaded && navReady) SplashScreen.hideAsync();
-  }, [fontsLoaded, navReady]);
+  // Don't render any screens until the fonts are loaded. Text that mounts
+  // referencing a not-yet-registered font can keep the system fallback even
+  // after the font arrives — so we wait, while the native splash covers us.
+  if (!fontsLoaded) return null;
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

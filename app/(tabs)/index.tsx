@@ -16,6 +16,9 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
 import { WeightInput } from '@/components/weight-input';
+import { useWorkoutActive } from '@/components/workout-active';
+import { useExercises } from '@/components/exercises-context';
+import { toDisplayWeight } from '@/constants/units';
 import type {
   SplitDay,
   LoggedSet,
@@ -24,7 +27,6 @@ import type {
   RoutineExercise,
   WeightUnit,
 } from '@/types/workout';
-import { EXERCISE_MAP } from '@/data/exercises';
 import { DEFAULT_ROUTINE } from '@/data/default-routine';
 import { loadSessions, saveSessions, loadRoutine, loadUnit } from '@/storage/workout-storage';
 import { SPLIT_DAYS, SPLIT_LABELS, SPLIT_MUSCLES, NEXT_IN_ROTATION } from '@/constants/splits';
@@ -60,6 +62,8 @@ function relativeDay(iso: string): string {
 }
 
 export default function LogScreen() {
+  const { exerciseMap } = useExercises();
+
   // ─── State ─────────────────────────────────────────────
   const [routine, setRoutine] = useState<Routine>(DEFAULT_ROUTINE);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
@@ -70,6 +74,25 @@ export default function LogScreen() {
   // restRemaining: seconds left on the rest timer, or null when no
   // timer is running.
   const [restRemaining, setRestRemaining] = useState<number | null>(null);
+
+  // elapsed: seconds the current session has been running (header timer).
+  const [elapsed, setElapsed] = useState(0);
+
+  // Shared flag so the bottom nav hides while a workout is in progress.
+  const { setActive, startSignal } = useWorkoutActive();
+  useEffect(() => {
+    setActive(activeSplit !== null);
+  }, [activeSplit, setActive]);
+
+  // ─── Session elapsed timer ─────────────────────────────
+  // A plain 1-second interval that runs while a workout is active. Unlike
+  // the rest timer it just counts up, and the functional updater (e => e+1)
+  // avoids any stale-value bug, so one interval is fine.
+  useEffect(() => {
+    if (!activeSplit) return;
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [activeSplit]);
 
   // Reload saved routine + history + unit whenever the Log tab regains
   // focus, but only while we're on the split picker — never mid-workout,
@@ -132,10 +155,22 @@ export default function LogScreen() {
       });
 
       setSets(prefilled);
+      setElapsed(0); // reset the session timer
       setActiveSplit(day);
     },
     [routine, sessions],
   );
+
+  // The center "+" nav button bumps startSignal — kick off the next-up
+  // day's workout (unless one is already running). Ignore the initial 0.
+  useEffect(() => {
+    if (startSignal === 0 || activeSplit !== null) return;
+    const nextUp: SplitDay = sessions.length
+      ? NEXT_IN_ROTATION[sessions[0].splitDay]
+      : 'push';
+    startWorkout(nextUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startSignal]);
 
   // ─── Update a single set's field ───────────────────────
   // Instead of managing separate state for each input, we keep
@@ -311,6 +346,10 @@ export default function LogScreen() {
   // sections. We walk the routine order (not the sets order)
   // to keep exercises in the planned sequence.
   const exercisesForDay = routine[activeSplit];
+  const doneCount = sets.filter((s) => s.completed).length;
+  const totalCount = sets.length;
+  // The session we pre-filled from, for the "pre-filled from last session" note.
+  const lastSession = sessions.find((s) => s.splitDay === activeSplit);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -323,19 +362,27 @@ export default function LogScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Pressable
+            style={styles.closeChip}
+            hitSlop={6}
             onPress={() => {
               setActiveSplit(null);
               setRestRemaining(null); // stop timer when leaving the workout
             }}
           >
-            <Text style={styles.backButton}>← Back</Text>
+            <Text style={styles.closeChipText}>✕</Text>
           </Pressable>
-          <Text style={styles.title}>{SPLIT_LABELS[activeSplit]} Day</Text>
+          <View style={styles.headerMiddle}>
+            <Text style={styles.headerTitle}>{SPLIT_LABELS[activeSplit]} day</Text>
+            <Text style={styles.headerSub}>
+              {doneCount} of {totalCount} sets done
+            </Text>
+          </View>
+          <Text style={styles.sessionTimer}>{formatTime(elapsed)}</Text>
         </View>
 
         <ScrollView style={styles.scrollArea} keyboardShouldPersistTaps="handled">
           {exercisesForDay.map((re: RoutineExercise) => {
-            const exercise = EXERCISE_MAP[re.exerciseId];
+            const exercise = exerciseMap[re.exerciseId];
             if (!exercise) return null;
 
             // Find this exercise's sets in our flat array
@@ -343,12 +390,22 @@ export default function LogScreen() {
               .map((s, i) => ({ ...s, globalIndex: i }))
               .filter((s) => s.exerciseId === re.exerciseId);
 
+            // The weight this exercise was pre-filled from (last session's first set).
+            const lastWeight = lastSession?.sets.find(
+              (st) => st.exerciseId === re.exerciseId,
+            )?.weight;
+
             return (
               <View key={re.exerciseId} style={styles.exerciseBlock}>
                 <View style={styles.exerciseHeader}>
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <Text style={styles.muscleTag}>{exercise.muscleGroup}</Text>
                 </View>
+                {lastWeight ? (
+                  <Text style={styles.prefillNote}>
+                    pre-filled from last session · {toDisplayWeight(lastWeight, unit)} {unit}
+                  </Text>
+                ) : null}
 
                 {/* Column labels */}
                 <View style={styles.setRow}>
@@ -450,7 +507,7 @@ export default function LogScreen() {
 
         {/* Finish button pinned to bottom */}
         <Pressable style={styles.finishButton} onPress={finishWorkout}>
-          <Text style={styles.finishText}>Finish Workout</Text>
+          <Text style={styles.finishText}>Finish workout</Text>
         </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -588,7 +645,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  backButton: { fontSize: 16, fontFamily: Fonts.bodySemibold, color: Colors.accent },
+  closeChip: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeChipText: { fontSize: 16, color: Colors.text },
+  headerMiddle: { flex: 1 },
+  headerTitle: { fontSize: 20, fontFamily: Fonts.headingBold, color: Colors.text },
+  headerSub: { fontSize: 12, fontFamily: Fonts.body, color: Colors.textMuted, marginTop: 1 },
+  sessionTimer: {
+    fontSize: 22,
+    fontFamily: Fonts.number,
+    color: Colors.accent,
+    fontVariant: ['tabular-nums'],
+  },
 
   // Scroll area
   scrollArea: { flex: 1, paddingHorizontal: Spacing.xl },
@@ -604,6 +680,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  prefillNote: {
+    fontSize: 12,
+    fontFamily: Fonts.body,
+    color: Colors.textFaint,
     marginBottom: Spacing.sm,
   },
   exerciseName: { fontSize: 18, fontFamily: Fonts.heading, color: Colors.text },

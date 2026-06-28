@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
 import type { WorkoutSession } from '@/types/workout';
-import { EXERCISE_MAP } from '@/data/exercises';
 import {
   DEFAULT_MUSCLE_TARGETS,
   MUSCLE_ORDER,
@@ -13,6 +12,7 @@ import {
 import { loadSessions } from '@/storage/workout-storage';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
+import { useExercises } from '@/components/exercises-context';
 
 // ─── Week boundaries ───────────────────────────────────────────
 // Monday 00:00 of the current week, as both a Date and a YYYY-MM-DD
@@ -43,6 +43,7 @@ function formatWeekRange(start: Date, end: Date): string {
 }
 
 export default function VolumeScreen() {
+  const { exerciseMap } = useExercises();
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
 
   useFocusEffect(
@@ -62,7 +63,7 @@ export default function VolumeScreen() {
   for (const session of sessions) {
     if (session.date < weekStartIso || session.date > weekEndIso) continue;
     for (const set of session.sets) {
-      const exercise = EXERCISE_MAP[set.exerciseId];
+      const exercise = exerciseMap[set.exerciseId];
       if (!exercise) continue;
       counts[exercise.muscleGroup] = (counts[exercise.muscleGroup] ?? 0) + 1;
     }

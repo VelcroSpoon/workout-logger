@@ -12,12 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
 import type { WorkoutSession, WeightUnit, SplitDay } from '@/types/workout';
-import { EXERCISE_MAP } from '@/data/exercises';
 import { loadSessions, loadUnit, saveSessions } from '@/storage/workout-storage';
 import { SPLIT_LABELS } from '@/constants/splits';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
 import { WeightInput } from '@/components/weight-input';
+import { useExercises } from '@/components/exercises-context';
 import { formatVolume } from '@/constants/units';
 
 // Two-letter badge code shown on each session card.
@@ -33,6 +33,7 @@ function formatSessionDate(iso: string): string {
 }
 
 export default function HistoryScreen() {
+  const { exerciseMap } = useExercises();
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [unit, setUnit] = useState<WeightUnit>('lb');
   // id of the session currently open in the editor, or null for the list.
@@ -151,7 +152,7 @@ export default function HistoryScreen() {
           {/* Each set is editable; the index into session.sets is its
               identity, so we keep it via the .map index. */}
           {editingSession.sets.map((set, i) => {
-            const exercise = EXERCISE_MAP[set.exerciseId];
+            const exercise = exerciseMap[set.exerciseId];
             return (
               <View key={i} style={styles.editRow}>
                 <Text style={styles.editExercise} numberOfLines={1}>

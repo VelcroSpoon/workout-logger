@@ -1,20 +1,40 @@
 import { useState, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect } from 'expo-router';
-import type { SplitDay, Routine, RoutineExercise, WeightUnit } from '@/types/workout';
-import { DEFAULT_EXERCISES, EXERCISE_MAP } from '@/data/exercises';
+import { useFocusEffect, useRouter } from 'expo-router';
+import type { SplitDay, Routine, RoutineExercise, WeightUnit, MuscleGroup } from '@/types/workout';
 import { DEFAULT_ROUTINE } from '@/data/default-routine';
-import { loadRoutine, saveRoutine, loadUnit, saveUnit } from '@/storage/workout-storage';
+import { SPLIT_MUSCLE_GROUPS, formatMuscle } from '@/data/muscle-targets';
+import {
+  loadRoutine,
+  saveRoutine,
+  loadUnit,
+  saveUnit,
+  clearOnboarded,
+} from '@/storage/workout-storage';
 import { SPLIT_DAYS, SPLIT_LABELS } from '@/constants/splits';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 import { ScreenTexture } from '@/components/screen-texture';
+import { useExercises } from '@/components/exercises-context';
 
 export default function RoutineScreen() {
+  const router = useRouter();
+  const { allExercises, exerciseMap, addCustomExercise } = useExercises();
   const [routine, setRoutine] = useState<Routine>(DEFAULT_ROUTINE);
   const [activeSplit, setActiveSplit] = useState<SplitDay>('push');
   const [unit, setUnit] = useState<WeightUnit>('lb');
+
+  // Custom-exercise creation form state.
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newMuscle, setNewMuscle] = useState<MuscleGroup | null>(null);
+
+  // Clear the onboarded flag and jump back to the intro so it can be replayed.
+  const resetOnboarding = async () => {
+    await clearOnboarded();
+    router.replace('/onboarding');
+  };
 
   // Load the saved routine + unit each time this tab gains focus, so it
   // reflects changes even if storage changed elsewhere.
@@ -84,12 +104,23 @@ export default function RoutineScreen() {
     updateDay(activeSplit, next);
   };
 
-  // Library exercises for this split day that aren't already in the routine.
-  const available = DEFAULT_EXERCISES.filter(
+  // Library exercises (built-in + custom) for this split day that aren't
+  // already in the routine.
+  const available = allExercises.filter(
     (e) =>
       e.splitDay === activeSplit &&
       !current.some((re) => re.exerciseId === e.id),
   );
+
+  // Create a brand-new exercise and drop it straight into the routine.
+  const createExercise = () => {
+    if (!newName.trim() || !newMuscle) return;
+    const exercise = addCustomExercise(newName, newMuscle, activeSplit);
+    updateDay(activeSplit, [...current, { exerciseId: exercise.id, targetSets: 3 }]);
+    setNewName('');
+    setNewMuscle(null);
+    setCreating(false);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -152,7 +183,7 @@ export default function RoutineScreen() {
           <Text style={styles.empty}>No exercises yet. Add some below.</Text>
         ) : (
           current.map((re, index) => {
-            const ex = EXERCISE_MAP[re.exerciseId];
+            const ex = exerciseMap[re.exerciseId];
             if (!ex) return null;
             const isFirst = index === 0;
             const isLast = index === current.length - 1;
@@ -217,25 +248,82 @@ export default function RoutineScreen() {
           })
         )}
 
-        {/* ─── Add from library ─── */}
-        {available.length > 0 && (
-          <>
-            <Text style={styles.sectionHeader}>Add Exercise</Text>
-            {available.map((ex) => (
+        {/* ─── Add exercise ─── */}
+        <Text style={styles.sectionHeader}>Add Exercise</Text>
+        {available.map((ex) => (
+          <Pressable
+            key={ex.id}
+            style={styles.addRow}
+            onPress={() => addExercise(ex.id)}
+          >
+            <View>
+              <Text style={styles.exerciseName}>{ex.name}</Text>
+              <Text style={styles.muscleTag}>{ex.muscleGroup}</Text>
+            </View>
+            <Text style={styles.addPlus}>＋</Text>
+          </Pressable>
+        ))}
+
+        {/* Create a custom exercise */}
+        {creating ? (
+          <View style={styles.createCard}>
+            <TextInput
+              style={styles.createInput}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="Exercise name"
+              placeholderTextColor={Colors.textFaint}
+            />
+            <View style={styles.muscleChips}>
+              {SPLIT_MUSCLE_GROUPS[activeSplit].map((m) => (
+                <Pressable
+                  key={m}
+                  style={[styles.muscleChip, newMuscle === m && styles.muscleChipActive]}
+                  onPress={() => setNewMuscle(m)}
+                >
+                  <Text
+                    style={[
+                      styles.muscleChipText,
+                      newMuscle === m && styles.muscleChipTextActive,
+                    ]}
+                  >
+                    {formatMuscle(m)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.createActions}>
               <Pressable
-                key={ex.id}
-                style={styles.addRow}
-                onPress={() => addExercise(ex.id)}
+                onPress={() => {
+                  setCreating(false);
+                  setNewName('');
+                  setNewMuscle(null);
+                }}
               >
-                <View>
-                  <Text style={styles.exerciseName}>{ex.name}</Text>
-                  <Text style={styles.muscleTag}>{ex.muscleGroup}</Text>
-                </View>
-                <Text style={styles.addPlus}>＋</Text>
+                <Text style={styles.cancelText}>Cancel</Text>
               </Pressable>
-            ))}
-          </>
+              <Pressable
+                style={[
+                  styles.createBtn,
+                  (!newName.trim() || !newMuscle) && styles.createBtnDisabled,
+                ]}
+                onPress={createExercise}
+                disabled={!newName.trim() || !newMuscle}
+              >
+                <Text style={styles.createBtnText}>Add exercise</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable style={styles.createToggle} onPress={() => setCreating(true)}>
+            <Text style={styles.createToggleText}>+ Create custom exercise</Text>
+          </Pressable>
         )}
+
+        {/* Settings */}
+        <Pressable style={styles.resetButton} onPress={resetOnboarding}>
+          <Text style={styles.resetText}>Reset onboarding</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -386,4 +474,70 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   addPlus: { fontSize: 22, color: Colors.accent, fontWeight: '600' },
+
+  // Create custom exercise
+  createToggle: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    marginTop: Spacing.sm,
+    alignItems: 'center',
+  },
+  createToggleText: { fontSize: 14, fontFamily: Fonts.bodySemibold, color: Colors.textMuted },
+  createCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
+    marginTop: Spacing.sm,
+    gap: Spacing.md,
+  },
+  createInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.sm,
+    padding: Spacing.md,
+    fontSize: 16,
+    fontFamily: Fonts.body,
+    color: Colors.text,
+  },
+  muscleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  muscleChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  muscleChipActive: { backgroundColor: Colors.accentTint, borderColor: Colors.accent },
+  muscleChipText: { fontSize: 13, fontFamily: Fonts.bodyMedium, color: Colors.textMuted },
+  muscleChipTextActive: { color: Colors.accent },
+  createActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.lg,
+  },
+  cancelText: { fontSize: 14, fontFamily: Fonts.bodySemibold, color: Colors.textMuted },
+  createBtn: {
+    backgroundColor: Colors.accent,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+  },
+  createBtnDisabled: { opacity: 0.4 },
+  createBtnText: { fontSize: 14, fontFamily: Fonts.bodyBold, color: Colors.accentText },
+
+  // Settings
+  resetButton: {
+    marginTop: Spacing.xxl,
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+  },
+  resetText: { fontSize: 13, fontFamily: Fonts.body, color: Colors.textFaint },
 });

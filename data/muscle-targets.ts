@@ -1,4 +1,12 @@
-import type { MuscleGroup } from '@/types/workout';
+import type { MuscleGroup, SplitDay } from '@/types/workout';
+
+// Which muscle groups belong to each split day — used when creating a
+// custom exercise so the muscle options match the day you're editing.
+export const SPLIT_MUSCLE_GROUPS: Record<SplitDay, MuscleGroup[]> = {
+  push: ['chest', 'shoulders', 'triceps'],
+  pull: ['back', 'biceps', 'rear_delts'],
+  legs: ['quads', 'hamstrings', 'glutes', 'calves'],
+};
 
 // Weekly target sets per muscle group — the "planned" side of the
 // planned-vs-actual volume view. These are sensible hypertrophy defaults

@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { WorkoutSession, Routine, WeightUnit } from '@/types/workout';
+import type { WorkoutSession, Routine, WeightUnit, Exercise } from '@/types/workout';
 
 const KEYS = {
   SESSIONS: 'workout_sessions',
   ROUTINE: 'workout_routine',
   UNIT: 'workout_unit',
   ONBOARDED: 'workout_onboarded',
+  CUSTOM_EXERCISES: 'workout_custom_exercises',
 } as const;
 
 // ─── Sessions ──────────────────────────────────────────────────
@@ -50,6 +51,21 @@ export async function loadOnboarded(): Promise<boolean> {
 
 export async function saveOnboarded(): Promise<void> {
   await AsyncStorage.setItem(KEYS.ONBOARDED, 'true');
+}
+
+export async function clearOnboarded(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.ONBOARDED);
+}
+
+// ─── Custom exercises ──────────────────────────────────────────
+
+export async function loadCustomExercises(): Promise<Exercise[]> {
+  const json = await AsyncStorage.getItem(KEYS.CUSTOM_EXERCISES);
+  return json ? JSON.parse(json) : [];
+}
+
+export async function saveCustomExercises(list: Exercise[]): Promise<void> {
+  await AsyncStorage.setItem(KEYS.CUSTOM_EXERCISES, JSON.stringify(list));
 }
 
 // ─── Helpers ───────────────────────────────────────────────────

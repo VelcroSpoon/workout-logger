@@ -2,6 +2,7 @@ import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { useWorkoutActive } from '@/components/workout-active';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
 
 type RouteName = 'index' | 'volume' | 'history' | 'routine';
@@ -18,7 +19,11 @@ const META: Record<RouteName, { label: string; icon: IconSymbolName }> = {
 // the whole bar ourselves from the navigation state React Navigation hands us.
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { active: workoutActive, requestStart } = useWorkoutActive();
   const activeName = state.routes[state.index]?.name;
+
+  // Hide the nav entirely during a workout — it's a focused session.
+  if (workoutActive) return null;
 
   const Tab = ({ name }: { name: RouteName }) => {
     const route = state.routes.find((r) => r.name === name);
@@ -56,9 +61,15 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
       <Tab name="index" />
       <Tab name="volume" />
 
-      {/* Center "log" button — jumps to Today to start a session. */}
+      {/* Center "log" button — starts the next-up workout right away. */}
       <View style={styles.plusSlot}>
-        <Pressable style={styles.plus} onPress={() => navigation.navigate('index')}>
+        <Pressable
+          style={styles.plus}
+          onPress={() => {
+            requestStart();
+            navigation.navigate('index');
+          }}
+        >
           <IconSymbol name="plus" size={28} color={Colors.accentText} />
         </Pressable>
       </View>
