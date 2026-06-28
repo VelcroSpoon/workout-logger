@@ -29,7 +29,14 @@ import type {
   WeightUnit,
 } from '@/types/workout';
 import { DEFAULT_ROUTINE } from '@/data/default-routine';
-import { loadSessions, saveSessions, loadRoutine, loadUnit } from '@/storage/workout-storage';
+import {
+  loadSessions,
+  saveSessions,
+  loadRoutine,
+  loadUnit,
+  loadProfileName,
+  saveProfileName,
+} from '@/storage/workout-storage';
 import { SPLIT_DAYS, SPLIT_LABELS, SPLIT_MUSCLES, NEXT_IN_ROTATION } from '@/constants/splits';
 
 // How long the rest timer counts down, in seconds.
@@ -68,6 +75,11 @@ export default function LogScreen() {
   // ─── State ─────────────────────────────────────────────
   const [routine, setRoutine] = useState<Routine>(DEFAULT_ROUTINE);
   const [picking, setPicking] = useState(false); // exercise picker open?
+
+  // Profile name (shown as the avatar initial; editable from the Today header).
+  const [profileName, setProfileName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [activeSplit, setActiveSplit] = useState<SplitDay | null>(null);
   const [sets, setSets] = useState<LoggedSet[]>([]);
@@ -108,8 +120,16 @@ export default function LogScreen() {
       });
       loadSessions().then(setSessions);
       loadUnit().then(setUnit);
+      loadProfileName().then(setProfileName);
     }, [activeSplit]),
   );
+
+  const saveName = () => {
+    const name = nameDraft.trim();
+    setProfileName(name);
+    saveProfileName(name);
+    setEditingName(false);
+  };
 
   // ─── Rest timer tick ───────────────────────────────────
   // Each time restRemaining changes we schedule a single 1-second
@@ -315,8 +335,43 @@ export default function LogScreen() {
           {/* Header: date + avatar */}
           <View style={styles.todayHeader}>
             <Text style={styles.todayDate}>{todayHeading()}</Text>
-            <View style={styles.avatar} />
+            <Pressable
+              style={styles.avatar}
+              onPress={() => {
+                setNameDraft(profileName);
+                setEditingName(true);
+              }}
+            >
+              <Text style={styles.avatarText}>
+                {profileName ? profileName.trim()[0].toUpperCase() : '+'}
+              </Text>
+            </Pressable>
           </View>
+
+          {/* Name editor */}
+          <Modal
+            visible={editingName}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setEditingName(false)}
+          >
+            <Pressable style={styles.modalBackdrop} onPress={() => setEditingName(false)}>
+              <Pressable style={styles.modalSheet} onPress={() => {}}>
+                <Text style={styles.modalTitle}>Your name</Text>
+                <TextInput
+                  style={styles.nameInput}
+                  value={nameDraft}
+                  onChangeText={setNameDraft}
+                  placeholder="Name"
+                  placeholderTextColor={Colors.textFaint}
+                  autoFocus
+                />
+                <Pressable style={styles.nameSaveButton} onPress={saveName}>
+                  <Text style={styles.nameSaveText}>Save</Text>
+                </Pressable>
+              </Pressable>
+            </Pressable>
+          </Modal>
 
           <Text style={styles.todayTitle}>What are you{'\n'}training today?</Text>
 
@@ -615,7 +670,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceAlt,
     borderWidth: 1,
     borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  avatarText: { fontSize: 16, fontFamily: Fonts.headingBold, color: Colors.accent },
   todayTitle: {
     fontSize: 34,
     fontFamily: Fonts.heading,
@@ -911,6 +969,26 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     textTransform: 'uppercase',
   },
+
+  // Name editor
+  nameInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.sm,
+    padding: Spacing.md,
+    fontSize: 16,
+    fontFamily: Fonts.body,
+    color: Colors.text,
+    marginBottom: Spacing.md,
+  },
+  nameSaveButton: {
+    backgroundColor: Colors.accent,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+  },
+  nameSaveText: { fontSize: 16, fontFamily: Fonts.bodyBold, color: Colors.accentText },
 
   // Rest timer bar
   restBar: {

@@ -1,8 +1,14 @@
 import { useState, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, TextInput } from 'react-native';
+import { StyleSheet, Text, View, Pressable, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useRouter } from 'expo-router';
+import {
+  NestableScrollContainer,
+  NestableDraggableFlatList,
+  ScaleDecorator,
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import type { SplitDay, Routine, RoutineExercise, WeightUnit, MuscleGroup } from '@/types/workout';
 import { DEFAULT_ROUTINE } from '@/data/default-routine';
 import { SPLIT_MUSCLE_GROUPS, formatMuscle } from '@/data/muscle-targets';
@@ -93,15 +99,50 @@ export default function RoutineScreen() {
     );
   };
 
-  // Move an exercise up (direction -1) or down (direction +1) by
-  // swapping it with its neighbor. We bail if the move would fall
-  // off either end of the list.
-  const moveExercise = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= current.length) return;
-    const next = [...current];
-    [next[index], next[target]] = [next[target], next[index]]; // swap
-    updateDay(activeSplit, next);
+  // Persist the new order once a drag finishes. DraggableFlatList hands
+  // us the fully reordered array.
+  const onDragEnd = ({ data }: { data: RoutineExercise[] }) => {
+    updateDay(activeSplit, data);
+  };
+
+  // One exercise row in the draggable list. `drag` starts the drag (we
+  // wire it to the grip handle); `isActive` is true while it's lifted.
+  const renderExercise = ({ item: re, drag, isActive }: RenderItemParams<RoutineExercise>) => {
+    const ex = exerciseMap[re.exerciseId];
+    if (!ex) return null;
+    return (
+      <ScaleDecorator>
+        <View style={[styles.exerciseRow, isActive && styles.exerciseRowActive]}>
+          <Pressable
+            onLongPress={drag}
+            disabled={isActive}
+            hitSlop={8}
+            style={styles.dragHandle}
+          >
+            <Text style={styles.dragDots}>⋮⋮</Text>
+          </Pressable>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.exerciseName}>{ex.name}</Text>
+            <Text style={styles.muscleTag}>{ex.muscleGroup}</Text>
+          </View>
+
+          <View style={styles.stepper}>
+            <Pressable style={styles.stepBtn} onPress={() => changeSets(re.exerciseId, -1)}>
+              <Text style={styles.stepBtnText}>−</Text>
+            </Pressable>
+            <Text style={styles.setCount}>{re.targetSets}</Text>
+            <Pressable style={styles.stepBtn} onPress={() => changeSets(re.exerciseId, 1)}>
+              <Text style={styles.stepBtnText}>+</Text>
+            </Pressable>
+          </View>
+
+          <Pressable style={styles.removeBtn} onPress={() => removeExercise(re.exerciseId)}>
+            <Text style={styles.removeBtnText}>✕</Text>
+          </Pressable>
+        </View>
+      </ScaleDecorator>
+    );
   };
 
   // Library exercises (built-in + custom) for this split day that aren't
@@ -126,7 +167,10 @@ export default function RoutineScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <ScreenTexture />
-      <ScrollView contentContainerStyle={styles.content}>
+      <NestableScrollContainer
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.title}>Edit routine</Text>
 
         {/* ─── Weight unit toggle ─── */}
@@ -182,70 +226,12 @@ export default function RoutineScreen() {
         {current.length === 0 ? (
           <Text style={styles.empty}>No exercises yet. Add some below.</Text>
         ) : (
-          current.map((re, index) => {
-            const ex = exerciseMap[re.exerciseId];
-            if (!ex) return null;
-            const isFirst = index === 0;
-            const isLast = index === current.length - 1;
-            return (
-              <View key={re.exerciseId} style={styles.exerciseRow}>
-                {/* reorder arrows */}
-                <View style={styles.reorder}>
-                  <Pressable
-                    onPress={() => moveExercise(index, -1)}
-                    disabled={isFirst}
-                    hitSlop={6}
-                  >
-                    <Text
-                      style={[styles.reorderArrow, isFirst && styles.reorderDisabled]}
-                    >
-                      ▲
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => moveExercise(index, 1)}
-                    disabled={isLast}
-                    hitSlop={6}
-                  >
-                    <Text
-                      style={[styles.reorderArrow, isLast && styles.reorderDisabled]}
-                    >
-                      ▼
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.exerciseName}>{ex.name}</Text>
-                  <Text style={styles.muscleTag}>{ex.muscleGroup}</Text>
-                </View>
-
-                {/* sets stepper */}
-                <View style={styles.stepper}>
-                  <Pressable
-                    style={styles.stepBtn}
-                    onPress={() => changeSets(re.exerciseId, -1)}
-                  >
-                    <Text style={styles.stepBtnText}>−</Text>
-                  </Pressable>
-                  <Text style={styles.setCount}>{re.targetSets}</Text>
-                  <Pressable
-                    style={styles.stepBtn}
-                    onPress={() => changeSets(re.exerciseId, 1)}
-                  >
-                    <Text style={styles.stepBtnText}>+</Text>
-                  </Pressable>
-                </View>
-
-                <Pressable
-                  style={styles.removeBtn}
-                  onPress={() => removeExercise(re.exerciseId)}
-                >
-                  <Text style={styles.removeBtnText}>✕</Text>
-                </Pressable>
-              </View>
-            );
-          })
+          <NestableDraggableFlatList
+            data={current}
+            keyExtractor={(item) => item.exerciseId}
+            renderItem={renderExercise}
+            onDragEnd={onDragEnd}
+          />
         )}
 
         {/* ─── Add exercise ─── */}
@@ -324,7 +310,7 @@ export default function RoutineScreen() {
         <Pressable style={styles.resetButton} onPress={resetOnboarding}>
           <Text style={styles.resetText}>Reset onboarding</Text>
         </Pressable>
-      </ScrollView>
+      </NestableScrollContainer>
     </SafeAreaView>
   );
 }
@@ -404,14 +390,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingVertical: 10,
+    paddingHorizontal: Spacing.xl,
+    marginHorizontal: -Spacing.xl, // bleed to screen edges so the lifted row looks full-width
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    backgroundColor: Colors.bg,
   },
+  exerciseRowActive: { backgroundColor: Colors.surface },
 
-  // Reorder arrows
-  reorder: { justifyContent: 'center', gap: 1 },
-  reorderArrow: { fontSize: 13, color: Colors.accent, paddingHorizontal: 2 },
-  reorderDisabled: { color: Colors.border },
+  // Drag handle
+  dragHandle: { paddingHorizontal: 2, paddingVertical: 4 },
+  dragDots: { fontSize: 16, color: Colors.textFaint, letterSpacing: -2 },
   exerciseName: { fontSize: 16, fontFamily: Fonts.heading, color: Colors.text },
   muscleTag: {
     fontSize: 10,

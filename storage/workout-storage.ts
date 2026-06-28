@@ -9,6 +9,7 @@ const KEYS = {
   ONBOARDED: 'workout_onboarded',
   CUSTOM_EXERCISES: 'workout_custom_exercises',
   TARGETS: 'workout_targets',
+  PROFILE_NAME: 'workout_profile_name',
 } as const;
 
 type MuscleTargets = Record<MuscleGroup, number>;
@@ -84,6 +85,16 @@ export async function loadTargets(): Promise<MuscleTargets> {
 
 export async function saveTargets(targets: MuscleTargets): Promise<void> {
   await AsyncStorage.setItem(KEYS.TARGETS, JSON.stringify(targets));
+}
+
+// ─── Profile ───────────────────────────────────────────────────
+
+export async function loadProfileName(): Promise<string> {
+  return (await AsyncStorage.getItem(KEYS.PROFILE_NAME)) ?? '';
+}
+
+export async function saveProfileName(name: string): Promise<void> {
+  await AsyncStorage.setItem(KEYS.PROFILE_NAME, name);
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
