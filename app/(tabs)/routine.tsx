@@ -67,7 +67,7 @@ export default function RoutineScreen() {
       activeSplit,
       current.map((re) =>
         re.exerciseId === exerciseId
-          ? { ...re, targetSets: Math.max(1, re.targetSets + delta) } // never below 1
+          ? { ...re, targetSets: Math.min(8, Math.max(1, re.targetSets + delta)) } // clamp 1–8
           : re,
       ),
     );
@@ -96,7 +96,7 @@ export default function RoutineScreen() {
       <StatusBar style="light" />
       <ScreenTexture />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Edit Routine</Text>
+        <Text style={styles.title}>Edit routine</Text>
 
         {/* ─── Weight unit toggle ─── */}
         <View style={styles.unitRow}>

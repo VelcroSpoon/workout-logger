@@ -11,9 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
-import type { WorkoutSession, WeightUnit } from '@/types/workout';
+import type { WorkoutSession, WeightUnit, SplitDay } from '@/types/workout';
 import { EXERCISE_MAP } from '@/data/exercises';
-import { formatMuscle } from '@/data/muscle-targets';
 import { loadSessions, loadUnit, saveSessions } from '@/storage/workout-storage';
 import { SPLIT_LABELS } from '@/constants/splits';
 import { Colors, Spacing, Radius, Fonts } from '@/constants/tokens';
@@ -21,20 +20,16 @@ import { ScreenTexture } from '@/components/screen-texture';
 import { WeightInput } from '@/components/weight-input';
 import { formatVolume } from '@/constants/units';
 
-// Returns the Monday of the current week as a "YYYY-MM-DD" string.
-// We compare dates as strings because ISO dates sort correctly
-// lexicographically ("2026-06-15" < "2026-06-22"), which sidesteps
-// any Date/timezone math.
-function startOfWeekIso(): string {
-  const now = new Date();
-  const day = now.getDay(); // 0 = Sunday, 1 = Monday, ...
-  const shiftToMonday = day === 0 ? -6 : 1 - day;
-  now.setDate(now.getDate() + shiftToMonday);
+// Two-letter badge code shown on each session card.
+const DAY_CODE: Record<SplitDay, string> = { push: 'PU', pull: 'PL', legs: 'LE' };
 
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// "2026-06-23" → "Mon Jun 23"
+function formatSessionDate(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return `${DAYS[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
 export default function HistoryScreen() {
@@ -131,25 +126,6 @@ export default function HistoryScreen() {
     );
   };
 
-  // ─── Weekly volume by muscle group ─────────────────────
-  // The PPL differentiator: "you've done 12 sets of chest this week."
-  // We count every completed set logged since Monday, bucketed by
-  // the muscle group its exercise targets.
-  const weekStart = startOfWeekIso();
-  const volumeCounts: Record<string, number> = {};
-  for (const session of sessions) {
-    if (session.date < weekStart) continue; // older than this week
-    for (const set of session.sets) {
-      const exercise = EXERCISE_MAP[set.exerciseId];
-      if (!exercise) continue;
-      volumeCounts[exercise.muscleGroup] =
-        (volumeCounts[exercise.muscleGroup] ?? 0) + 1;
-    }
-  }
-  const weeklyVolume = Object.entries(volumeCounts)
-    .map(([muscle, sets]) => ({ muscle, sets }))
-    .sort((a, b) => b.sets - a.sets);
-
   // ─── Session editor ────────────────────────────────────
   // If a session is open for editing, render the editor instead of
   // the list. We look the session up fresh from state each render, so
@@ -230,24 +206,10 @@ export default function HistoryScreen() {
       <ScreenTexture />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>History</Text>
+        <Text style={styles.subtitle}>
+          Tap a session to edit a weight or delete it.
+        </Text>
 
-        {/* ─── This week's volume ─── */}
-        <Text style={styles.sectionHeader}>This Week&apos;s Volume</Text>
-        {weeklyVolume.length === 0 ? (
-          <Text style={styles.empty}>No sets logged this week yet.</Text>
-        ) : (
-          <View style={styles.volumeCard}>
-            {weeklyVolume.map(({ muscle, sets }) => (
-              <View key={muscle} style={styles.volumeRow}>
-                <Text style={styles.volumeMuscle}>{formatMuscle(muscle)}</Text>
-                <Text style={styles.volumeSets}>{sets} sets</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* ─── Past sessions ─── */}
-        <Text style={styles.sectionHeader}>Past Workouts</Text>
         {sessions.length === 0 ? (
           <Text style={styles.empty}>No workouts logged yet.</Text>
         ) : (
@@ -263,16 +225,21 @@ export default function HistoryScreen() {
                 style={styles.sessionCard}
                 onPress={() => setEditingId(session.id)}
               >
-                <View style={styles.sessionHeader}>
-                  <Text style={styles.sessionSplit}>
-                    {SPLIT_LABELS[session.splitDay]}
+                <View style={styles.dayBadge}>
+                  <Text style={styles.dayBadgeText}>
+                    {DAY_CODE[session.splitDay]}
                   </Text>
-                  <Text style={styles.sessionDate}>{session.date}</Text>
                 </View>
-                <Text style={styles.sessionSummary}>
-                  {session.sets.length} sets · {formatVolume(volume, unit)} total volume
-                </Text>
-                <Text style={styles.editHint}>Tap to edit</Text>
+                <View style={styles.sessionMiddle}>
+                  <Text style={styles.sessionSplit}>
+                    {SPLIT_LABELS[session.splitDay]} day
+                  </Text>
+                  <Text style={styles.sessionSummary}>
+                    {formatSessionDate(session.date)} · {session.sets.length} sets ·{' '}
+                    {formatVolume(volume, unit)}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
               </Pressable>
             );
           })
@@ -292,37 +259,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 
-  sectionHeader: {
-    fontSize: 13,
-    fontFamily: Fonts.bodyBold,
+  subtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.body,
     color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: Spacing.xxl,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: Spacing.lg,
   },
 
   empty: { color: Colors.textMuted, fontStyle: 'italic' },
 
-  // Weekly volume
-  volumeCard: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  volumeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  volumeMuscle: { fontSize: 15, fontFamily: Fonts.bodyMedium, color: Colors.text },
-  volumeSets: { fontSize: 15, fontFamily: Fonts.number, color: Colors.accent },
-
-  // Past sessions
+  // Session card
   sessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -330,16 +281,24 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: 10,
   },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  dayBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.accentTint,
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    justifyContent: 'center',
   },
-  sessionSplit: { fontSize: 17, fontFamily: Fonts.heading, color: Colors.text },
-  sessionDate: { fontSize: 13, fontFamily: Fonts.body, color: Colors.textMuted },
-  sessionSummary: { fontSize: 14, fontFamily: Fonts.body, color: Colors.textMuted },
-  editHint: { fontSize: 12, fontFamily: Fonts.bodySemibold, color: Colors.accent, marginTop: 6 },
+  dayBadgeText: { fontSize: 13, fontFamily: Fonts.headingBold, color: Colors.accent },
+  sessionMiddle: { flex: 1 },
+  sessionSplit: { fontSize: 16, fontFamily: Fonts.heading, color: Colors.text },
+  sessionSummary: {
+    fontSize: 13,
+    fontFamily: Fonts.body,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  chevron: { fontSize: 22, color: Colors.textFaint },
 
   // ─── Editor ───
   backButton: {

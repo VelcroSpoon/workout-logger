@@ -27,7 +27,7 @@ import type {
 import { EXERCISE_MAP } from '@/data/exercises';
 import { DEFAULT_ROUTINE } from '@/data/default-routine';
 import { loadSessions, saveSessions, loadRoutine, loadUnit } from '@/storage/workout-storage';
-import { SPLIT_DAYS, SPLIT_LABELS } from '@/constants/splits';
+import { SPLIT_DAYS, SPLIT_LABELS, SPLIT_MUSCLES, NEXT_IN_ROTATION } from '@/constants/splits';
 
 // How long the rest timer counts down, in seconds.
 const REST_DURATION = 90;
@@ -37,6 +37,26 @@ function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// "Tuesday · Jun 24" for today.
+function todayHeading(): string {
+  const d = new Date();
+  return `${WEEKDAYS[d.getDay()]} · ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
+// "Today" / "Yesterday" / "3 days ago" from an ISO date string.
+function relativeDay(iso: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const then = new Date(iso + 'T00:00:00');
+  const diff = Math.round((today.getTime() - then.getTime()) / 86_400_000);
+  if (diff <= 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return `${diff} days ago`;
 }
 
 export default function LogScreen() {
@@ -210,32 +230,78 @@ export default function LogScreen() {
     setRestRemaining(null); // stop any running rest timer
   }, [activeSplit, sets, sessions]);
 
-  // ─── Split Day Picker ──────────────────────────────────
+  // ─── Today (split picker) ──────────────────────────────
   if (!activeSplit) {
+    // Next up = the day that follows the most recently logged session in
+    // the PPL rotation; default to Push when there's no history yet.
+    const nextUp: SplitDay = sessions.length
+      ? NEXT_IN_ROTATION[sessions[0].splitDay]
+      : 'push';
+
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <ScreenTexture />
-        <Text style={styles.title}>What are you training?</Text>
-        <View style={styles.splitPicker}>
-          {SPLIT_DAYS.map((day) => {
-            const lastSession = sessions.find((s) => s.splitDay === day);
-            return (
-              <Pressable
-                key={day}
-                style={styles.splitCard}
-                onPress={() => startWorkout(day)}
-              >
-                <Text style={styles.splitLabel}>{SPLIT_LABELS[day]}</Text>
-                <Text style={styles.splitSub}>
-                  {lastSession
-                    ? `Last: ${lastSession.date}`
-                    : 'No history yet'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <ScrollView contentContainerStyle={styles.todayContent}>
+          {/* Header: date + avatar */}
+          <View style={styles.todayHeader}>
+            <Text style={styles.todayDate}>{todayHeading()}</Text>
+            <View style={styles.avatar} />
+          </View>
+
+          <Text style={styles.todayTitle}>What are you{'\n'}training today?</Text>
+
+          {/* Day cards */}
+          <View style={styles.dayCards}>
+            {SPLIT_DAYS.map((day) => {
+              const lastSession = sessions.find((s) => s.splitDay === day);
+              const isNext = day === nextUp;
+              return (
+                <Pressable
+                  key={day}
+                  style={[styles.dayCard, isNext && styles.dayCardNext]}
+                  onPress={() => startWorkout(day)}
+                >
+                  {/* Top row: status pill + last-trained */}
+                  <View style={styles.dayCardTop}>
+                    <View style={[styles.pill, isNext ? styles.pillNext : styles.pillRested]}>
+                      <Text style={isNext ? styles.pillNextText : styles.pillRestedText}>
+                        {isNext ? 'NEXT UP' : 'RESTED'}
+                      </Text>
+                    </View>
+                    <View style={styles.lastWrap}>
+                      <Text style={styles.lastLabel}>Last</Text>
+                      <Text style={styles.lastValue}>
+                        {lastSession ? relativeDay(lastSession.date) : '—'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Bottom row: day name + muscles, arrow chip */}
+                  <View style={styles.dayCardBottom}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dayLabel}>{SPLIT_LABELS[day].toUpperCase()}</Text>
+                      <Text style={styles.dayMuscles}>{SPLIT_MUSCLES[day]}</Text>
+                    </View>
+                    <View style={[styles.arrowChip, isNext && styles.arrowChipNext]}>
+                      <Text style={[styles.arrowText, isNext && styles.arrowTextNext]}>→</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Empty-session option */}
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.orLine} />
+          </View>
+          <Pressable onPress={() => startWorkout(nextUp)}>
+            <Text style={styles.emptySession}>Start an empty session</Text>
+          </Pressable>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -402,21 +468,114 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 
-  // Split picker
-  splitPicker: { padding: Spacing.xl, gap: Spacing.md },
-  splitCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
+  // ─── Today screen ───
+  todayContent: { padding: Spacing.xl },
+  todayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  todayDate: { fontSize: 13, fontFamily: Fonts.body, color: Colors.textMuted },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.surfaceAlt,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: Spacing.xl,
   },
-  splitLabel: { fontSize: 20, fontFamily: Fonts.headingBold, color: Colors.text },
-  splitSub: {
+  todayTitle: {
+    fontSize: 34,
+    fontFamily: Fonts.heading,
+    color: Colors.text,
+    letterSpacing: -0.5,
+    lineHeight: 38,
+    marginTop: Spacing.lg,
+  },
+
+  dayCards: { marginTop: Spacing.xl, gap: Spacing.md },
+  dayCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 18,
+    paddingHorizontal: Spacing.xl,
+  },
+  dayCardNext: { borderColor: Colors.accent },
+  dayCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
+  },
+  pillNext: { backgroundColor: Colors.accent },
+  pillRested: { borderWidth: 1, borderColor: Colors.border },
+  pillNextText: {
+    fontSize: 10,
+    fontFamily: Fonts.bodyBold,
+    letterSpacing: 0.8,
+    color: Colors.accentText,
+  },
+  pillRestedText: {
+    fontSize: 10,
+    fontFamily: Fonts.bodyBold,
+    letterSpacing: 0.8,
+    color: Colors.textFaint,
+  },
+  lastWrap: { alignItems: 'flex-end' },
+  lastLabel: { fontSize: 11, fontFamily: Fonts.body, color: Colors.textFaint },
+  lastValue: { fontSize: 12, fontFamily: Fonts.bodySemibold, color: Colors.textMuted },
+
+  dayCardBottom: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginTop: Spacing.lg,
+  },
+  dayLabel: {
+    fontSize: 30,
+    fontFamily: Fonts.headingBold,
+    color: Colors.text,
+    letterSpacing: -0.5,
+  },
+  dayMuscles: {
     fontSize: 13,
     fontFamily: Fonts.body,
     color: Colors.textMuted,
     marginTop: Spacing.xs,
+  },
+  arrowChip: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrowChipNext: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  arrowText: { fontSize: 18, color: Colors.textMuted },
+  arrowTextNext: { color: Colors.accentText },
+
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
+  },
+  orLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  orText: { fontSize: 13, fontFamily: Fonts.body, color: Colors.textFaint },
+  emptySession: {
+    textAlign: 'center',
+    marginTop: Spacing.lg,
+    fontSize: 15,
+    fontFamily: Fonts.bodySemibold,
+    color: Colors.text,
   },
 
   // Active workout header
